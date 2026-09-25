@@ -64,6 +64,7 @@ node practice-01/js/debug.js
 |---|---|---|---|---|
 | Обработка количества задач | completedTotal = "32" (строка), remainingTasks = -24 | Оператор + для строк выполняет конкатенацию,  а не сложение. "3"+"2" даёт "32". Затем "8"-"32"=-24 | Привести операнды к числу: Number(completedText)  + Number(additionalText) | completedTotal = 5  remainingTasks = 3 |
 | Граница цикла | controlSum = 6 вместо 10, в Scope видно, что taskNumber доходит только до 3 | УсловиеtaskNumber < 4 останавливает цикл  до 4, поэтому 4 не прибавляется | Заменить < на <= в taskNumber | controlSum = 10 |
+
 ![Точка останова в debug.js](./screenshots/debug-breakpoint.png)
 
 8. Вывод: В ходе практической работы я подготовил рабочее окружение (Node.js, npm, Git, VS Code, браузер),
