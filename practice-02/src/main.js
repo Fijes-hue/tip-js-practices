@@ -11,122 +11,148 @@ import {
   removeTask,
 } from "./task-service.js";
 
-function printTasks(label, tasks) {
-  console.log(`\n${label}`);
-  console.table(
-    tasks.map(({ id, title, completed, priority }) => ({
-      id,
-      title,
-      completed,
-      priority,
-    }))
-  );
-}
-
-function printStats(label, tasks) {
-  const { total, completed, pending, progress } = getTaskStats(tasks);
-  console.log(
-    `${label}: всего ${total}; выполнено ${completed}; осталось ${pending}; ` +
-      (total === 0 ? "Задач пока нет" : `прогресс ${progress.toFixed(1)}%`)
-  );
-}
-
-function applyResult(state, result) {
-  if (result.ok) {
-    return result.tasks;
-  }
-  console.error(`Ошибка: ${result.error}`);
-  return state;
-}
-
-console.log("=".repeat(70));
-console.log("ПР2. Общий демонстрационный сценарий");
-console.log("=".repeat(70));
+console.log("ПР2. Демонстрационный сценарий");
+console.log("Количество задач в общем наборе:", demoTasks.length);
+console.log("Номер варианта:", variantNumber);
+console.log("Количество задач в индивидуальном наборе:", variantTasks.length);
 
 let currentTasks = demoTasks;
 
-printTasks("Исходный набор:", currentTasks);
-console.log("Названия:", getTaskTitles(currentTasks));
+console.log("=== ИСХОДНЫЕ ЗАДАЧИ ===");
+console.log("Задачи:", currentTasks);
+console.log("Названия задач:", getTaskTitles(currentTasks));
+console.log("Невыполненные задачи:", getPendingTasks(currentTasks));
+
+let stats = getTaskStats(currentTasks);
 console.log(
-  "Невыполненные id:",
-  getPendingTasks(currentTasks).map((task) => task.id)
+  `Сводка: всего — ${stats.total}, выполнено — ${stats.completed}, ` +
+  `осталось — ${stats.pending}, прогресс — ${stats.progress.toFixed(1)}%`
 );
-printStats("Исходная сводка", currentTasks);
 
-currentTasks = applyResult(currentTasks, addTask(currentTasks, 20, "Добавить проверку", "high"));
-printStats("После добавления id = 20", currentTasks);
+let result = addTask(currentTasks, 20, "Добавить проверку", "high");
 
-currentTasks = applyResult(currentTasks, setTaskCompleted(currentTasks, 4, true));
-printStats("После выполнения id = 4", currentTasks);
+if (result.ok) {
+  currentTasks = result.tasks;
+  console.log("\n=== ДОБАВЛЕНИЕ ЗАДАЧИ id=20 ===");
+  console.log("Задача успешно добавлена.");
+  console.log("Текущее состояние:", currentTasks);
+} else {
+  console.error(`Ошибка при добавлении задачи: ${result.error}`);
+}
 
-currentTasks = applyResult(
-  currentTasks,
-  renameTask(currentTasks, 10, "Подготовить инструкцию запуска")
+result = setTaskCompleted(currentTasks, 4, true);
+
+if (result.ok) {
+  currentTasks = result.tasks;
+  console.log("\n=== ЗАВЕРШЕНИЕ ЗАДАЧИ id=4 ===");
+  console.log("Задача id=4 отмечена как выполненная.");
+  console.log("Текущее состояние:", currentTasks);
+} else {
+  console.error(`Ошибка при завершении задачи: ${result.error}`);
+}
+
+result = renameTask(currentTasks, 10, "Подготовить инструкцию запуска");
+
+if (result.ok) {
+  currentTasks = result.tasks;
+  console.log("\n=== ПЕРЕИМЕНОВАНИЕ ЗАДАЧИ id=10 ===");
+  console.log("Задача id=10 переименована.");
+  console.log("Текущее состояние:", currentTasks);
+} else {
+  console.error(`Ошибка при переименовании задачи: ${result.error}`);
+}
+
+result = removeTask(currentTasks, 7);
+
+if (result.ok) {
+  currentTasks = result.tasks;
+  console.log("\n=== УДАЛЕНИЕ ЗАДАЧИ id=7 ===");
+  console.log("Задача id=7 удалена.");
+  console.log("Текущее состояние:", currentTasks);
+} else {
+  console.error(`Ошибка при удалении задачи: ${result.error}`);
+}
+
+console.log("\n=== ПРОВЕРКА ОБРАБОТКИ ОТКАЗОВ ===");
+
+result = addTask(currentTasks, 20, "Дубликат", "low");
+if (result.ok) {
+  currentTasks = result.tasks;
+  console.log("Дубликат добавлен (неожиданно).");
+} else {
+  console.error(`Отказ (повторяющийся id): ${result.error}`);
+}
+
+result = setTaskCompleted(currentTasks, 1, "yes");
+if (result.ok) {
+  currentTasks = result.tasks;
+  console.log("Статус изменён (неожиданно).");
+} else {
+  console.error(`Отказ (неверный тип completed): ${result.error}`);
+}
+
+result = removeTask(currentTasks, 999);
+if (result.ok) {
+  currentTasks = result.tasks;
+  console.log("Задача удалена (неожиданно).");
+} else {
+  console.error(`Отказ (задача не найдена): ${result.error}`);
+}
+
+result = renameTask(currentTasks, 1, "   ");
+if (result.ok) {
+  currentTasks = result.tasks;
+  console.log("Задача переименована (неожиданно).");
+} else {
+  console.error(`Отказ (пустое название): ${result.error}`);
+}
+
+console.log("\n=== ПРОВЕРКА НЕИЗМЕННОСТИ ИСХОДНЫХ ДАННЫХ ===");
+console.log("Исходный demoTasks:", demoTasks);
+console.log(
+  "demoTasks не изменился:",
+  demoTasks.length === 4 &&
+  demoTasks[0].id === 1 &&
+  demoTasks[1].id === 4 &&
+  demoTasks[2].id === 7 &&
+  demoTasks[3].id === 10
 );
-printStats("После переименования id = 10", currentTasks);
 
-currentTasks = applyResult(currentTasks, removeTask(currentTasks, 7));
-printStats("После удаления id = 7", currentTasks);
-
-console.log("Итоговые id:", currentTasks.map((task) => task.id));
-console.log("Невыполненные id:", getPendingTasks(currentTasks).map((task) => task.id));
-
-console.log("Попытка повторного добавления id = 20:");
-const failed = addTask(currentTasks, 20, "Дубликат", "low");
-console.log(failed);
-currentTasks = applyResult(currentTasks, failed);
-console.log("Состояние после отказа:", currentTasks.map((task) => task.id));
-
-console.log("\nИсходный demoTasks не изменился:");
-console.log(demoTasks.map((task) => task.id));
-
-
-console.log("\n" + "=".repeat(70));
-console.log(`ПР2. Индивидуальный сценарий. Вариант ${variantNumber}`);
-console.log("=".repeat(70));
-
-let variantCurrent = variantTasks;
-
-printTasks("Исходный набор варианта:", variantCurrent);
-printStats("Исходная сводка варианта", variantCurrent);
-
-variantCurrent = applyResult(
-  variantCurrent,
-  addTask(variantCurrent, 80, "Опубликовать документацию", "low")
+console.log("\n=== ИТОГОВАЯ СВОДКА ===");
+stats = getTaskStats(currentTasks);
+console.log(
+  `Всего: ${stats.total}; выполнено: ${stats.completed}; ` +
+  `осталось: ${stats.pending}; прогресс: ${stats.progress.toFixed(1)}%`
 );
-printStats("После добавления id = 80", variantCurrent);
 
-variantCurrent = applyResult(variantCurrent, setTaskCompleted(variantCurrent, 11, true));
-printStats("После completed = true для id = 11", variantCurrent);
+if (stats.total === 0) {
+  console.log("Задач пока нет");
+}
 
-variantCurrent = applyResult(
-  variantCurrent,
-  renameTask(variantCurrent, 23, "Составить финальную структуру разделов")
+console.log(`\n=== ВАРИАНТ ${variantNumber} ===`);
+console.log("Задачи варианта:", variantTasks);
+console.log("Названия задач варианта:", getTaskTitles(variantTasks));
+
+const variantStats = getTaskStats(variantTasks);
+console.log(
+  `Сводка варианта: всего — ${variantStats.total}, ` +
+  `выполнено — ${variantStats.completed}, ` +
+  `осталось — ${variantStats.pending}, ` +
+  `прогресс — ${variantStats.progress.toFixed(1)}%`
 );
-printStats("После переименования id = 23", variantCurrent);
 
-variantCurrent = applyResult(variantCurrent, removeTask(variantCurrent, 37));
-printStats("После удаления id = 37", variantCurrent);
+console.log("\n=== ДЕМОНСТРАЦИЯ createTask И findTaskById ===");
 
-console.log("Итоговые id варианта:", variantCurrent.map((task) => task.id));
+const created = createTask(99, "Новая задача из createTask", "low");
+if (created.ok) {
+  console.log("createTask успешно:", created.task);
+} else {
+  console.error(`createTask: ${created.error}`);
+}
 
-console.log("\n--- Обработка отказа в варианте ---");
-console.log("Попытка повторного добавления id = 80:");
-const variantFailed = addTask(variantCurrent, 80, "Ещё одна задача", "low");
-console.log(variantFailed);
-variantCurrent = applyResult(variantCurrent, variantFailed);
-console.log("Состояние после отказа:", variantCurrent.map((task) => task.id));
-
-console.log("\nИсходный variantTasks не изменился:");
-console.log(variantTasks.map((task) => task.id));
-
-console.log("\n--- Дополнительные чтения ---");
-console.log("findTaskById(demoTasks, 4) ->", findTaskById(demoTasks, 4));
-console.log('findTaskById(demoTasks, "4") ->', findTaskById(demoTasks, "4"));
-console.log("findTaskById(demoTasks, 777) ->", findTaskById(demoTasks, 777));
-
-console.log("\n--- createTask ---");
-console.log(createTask(20, "Новая задача", "high"));
-console.log(createTask(0, "Новая задача"));
-console.log(createTask(20, "   "));
-console.log(createTask(20, "Новая задача", "urgent"));
+const found = findTaskById(currentTasks, 4);
+if (found !== undefined) {
+  console.log("findTaskById(4):", found);
+} else {
+  console.log("Задача с id=4 не найдена.");
+}
