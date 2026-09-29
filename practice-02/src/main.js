@@ -11,116 +11,122 @@ import {
   removeTask,
 } from "./task-service.js";
 
-console.log("ПР2. Демонстрационный сценарий");
-console.log("Вариант:", variantNumber);
-console.log("Задач в общем наборе:", demoTasks.length);
-console.log("Задач в индивидуальном наборе:", variantTasks.length);
+function printTasks(label, tasks) {
+  console.log(`\n${label}`);
+  console.table(
+    tasks.map(({ id, title, completed, priority }) => ({
+      id,
+      title,
+      completed,
+      priority,
+    }))
+  );
+}
 
-console.log("\n\n══════ ОБЩИЙ СЦЕНАРИЙ ══════");
+function printStats(label, tasks) {
+  const { total, completed, pending, progress } = getTaskStats(tasks);
+  console.log(
+    `${label}: всего ${total}; выполнено ${completed}; осталось ${pending}; ` +
+      (total === 0 ? "Задач пока нет" : `прогресс ${progress.toFixed(1)}%`)
+  );
+}
 
-console.log("\nНазвания задач:", getTaskTitles(demoTasks));
-console.log(
-  "Невыполненные id:",
-  getPendingTasks(demoTasks).map((t) => t.id)
-);
-console.log("Поиск id=4:", findTaskById(demoTasks, 4)?.title);
-console.log("Поиск id=777:", findTaskById(demoTasks, 777));
+function applyResult(state, result) {
+  if (result.ok) {
+    return result.tasks;
+  }
+  console.error(`Ошибка: ${result.error}`);
+  return state;
+}
 
-printStats(demoTasks, "Исходный набор");
+console.log("=".repeat(70));
+console.log("ПР2. Общий демонстрационный сценарий");
+console.log("=".repeat(70));
 
 let currentTasks = demoTasks;
 
-let result = addTask(currentTasks, 20, "Добавить проверку", "high");
-currentTasks = applyResult(currentTasks, result, "addTask id=20");
-printStats(currentTasks, "После добавления id=20");
-
-result = setTaskCompleted(currentTasks, 4, true);
-currentTasks = applyResult(currentTasks, result, "setTaskCompleted id=4");
-printStats(currentTasks, "После выполнения id=4");
-
-result = renameTask(currentTasks, 10, "Подготовить инструкцию запуска");
-currentTasks = applyResult(currentTasks, result, "renameTask id=10");
-printStats(currentTasks, "После переименования id=10");
-
-result = removeTask(currentTasks, 7);
-currentTasks = applyResult(currentTasks, result, "removeTask id=7");
-printStats(currentTasks, "После удаления id=7");
-
-console.log("\n--- Проверка отказа: повторяющийся id ---");
-result = addTask(currentTasks, 20, "Дубликат", "low");
-if (!result.ok) {
-  console.error(`Ожидаемый отказ: ${result.error}`);
-} else {
-  console.error("ОШИБКА: дубликат не был отклонён!");
-}
-
-
-console.log("\n--- Проверка сохранности demoTasks ---");
-console.log("demoTasks.length:", demoTasks.length, "(ожидается 4)");
-console.log(
-  "demoTasks ids:",
-  demoTasks.map((t) => t.id),
-  "(ожидается [1, 4, 7, 10])"
-);
-console.log(
-  "id=4 completed:",
-  findTaskById(demoTasks, 4).completed,
-  "(ожидается false)"
-);
-console.log(
-  "id=10 title:",
-  findTaskById(demoTasks, 10).title,
-  "(ожидается 'Оформить README')"
-);
-
-
-console.log("\n\n══════ ИНДИВИДУАЛЬНЫЙ СЦЕНАРИЙ (вариант 8) ══════");
-
-console.log("\nНазвания задач:", getTaskTitles(variantTasks));
+printTasks("Исходный набор:", currentTasks);
+console.log("Названия:", getTaskTitles(currentTasks));
 console.log(
   "Невыполненные id:",
-  getPendingTasks(variantTasks).map((t) => t.id)
+  getPendingTasks(currentTasks).map((task) => task.id)
 );
+printStats("Исходная сводка", currentTasks);
 
-printStats(variantTasks, "Исходный набор варианта");
+currentTasks = applyResult(currentTasks, addTask(currentTasks, 20, "Добавить проверку", "high"));
+printStats("После добавления id = 20", currentTasks);
 
-let variantState = variantTasks;
+currentTasks = applyResult(currentTasks, setTaskCompleted(currentTasks, 4, true));
+printStats("После выполнения id = 4", currentTasks);
 
-
-result = addTask(variantState, 80, "Согласовать финальный макет", "low");
-variantState = applyResult(variantState, result, "addTask id=80");
-printStats(variantState, "После добавления id=80");
-
-
-result = setTaskCompleted(variantState, 11, true);
-variantState = applyResult(variantState, result, "setTaskCompleted id=11");
-printStats(variantState, "После выполнения id=11");
-
-
-result = renameTask(variantState, 23, "Утвердить структуру разделов");
-variantState = applyResult(variantState, result, "renameTask id=23");
-printStats(variantState, "После переименования id=23");
-
-
-result = removeTask(variantState, 37);
-variantState = applyResult(variantState, result, "removeTask id=37");
-printStats(variantState, "После удаления id=37");
-
-
-console.log("\n--- Проверка отказа: повтор id=80 ---");
-result = addTask(variantState, 80, "Дубликат", "low");
-if (!result.ok) {
-  console.error(`Ожидаемый отказ: ${result.error}`);
-} else {
-  console.error("ОШИБКА: дубликат не был отклонён!");
-}
-
-console.log("\nИтоговые id:", variantState.map((t) => t.id));
-
-console.log("\n--- Проверка сохранности variantTasks ---");
-console.log("variantTasks.length:", variantTasks.length, "(ожидается 6)");
-console.log(
-  "variantTasks ids:",
-  variantTasks.map((t) => t.id),
-  "(ожидается [11, 23, 37, 41, 58, 64])"
+currentTasks = applyResult(
+  currentTasks,
+  renameTask(currentTasks, 10, "Подготовить инструкцию запуска")
 );
+printStats("После переименования id = 10", currentTasks);
+
+currentTasks = applyResult(currentTasks, removeTask(currentTasks, 7));
+printStats("После удаления id = 7", currentTasks);
+
+console.log("Итоговые id:", currentTasks.map((task) => task.id));
+console.log("Невыполненные id:", getPendingTasks(currentTasks).map((task) => task.id));
+
+console.log("Попытка повторного добавления id = 20:");
+const failed = addTask(currentTasks, 20, "Дубликат", "low");
+console.log(failed);
+currentTasks = applyResult(currentTasks, failed);
+console.log("Состояние после отказа:", currentTasks.map((task) => task.id));
+
+console.log("\nИсходный demoTasks не изменился:");
+console.log(demoTasks.map((task) => task.id));
+
+
+console.log("\n" + "=".repeat(70));
+console.log(`ПР2. Индивидуальный сценарий. Вариант ${variantNumber}`);
+console.log("=".repeat(70));
+
+let variantCurrent = variantTasks;
+
+printTasks("Исходный набор варианта:", variantCurrent);
+printStats("Исходная сводка варианта", variantCurrent);
+
+variantCurrent = applyResult(
+  variantCurrent,
+  addTask(variantCurrent, 80, "Опубликовать документацию", "low")
+);
+printStats("После добавления id = 80", variantCurrent);
+
+variantCurrent = applyResult(variantCurrent, setTaskCompleted(variantCurrent, 11, true));
+printStats("После completed = true для id = 11", variantCurrent);
+
+variantCurrent = applyResult(
+  variantCurrent,
+  renameTask(variantCurrent, 23, "Составить финальную структуру разделов")
+);
+printStats("После переименования id = 23", variantCurrent);
+
+variantCurrent = applyResult(variantCurrent, removeTask(variantCurrent, 37));
+printStats("После удаления id = 37", variantCurrent);
+
+console.log("Итоговые id варианта:", variantCurrent.map((task) => task.id));
+
+console.log("\n--- Обработка отказа в варианте ---");
+console.log("Попытка повторного добавления id = 80:");
+const variantFailed = addTask(variantCurrent, 80, "Ещё одна задача", "low");
+console.log(variantFailed);
+variantCurrent = applyResult(variantCurrent, variantFailed);
+console.log("Состояние после отказа:", variantCurrent.map((task) => task.id));
+
+console.log("\nИсходный variantTasks не изменился:");
+console.log(variantTasks.map((task) => task.id));
+
+console.log("\n--- Дополнительные чтения ---");
+console.log("findTaskById(demoTasks, 4) ->", findTaskById(demoTasks, 4));
+console.log('findTaskById(demoTasks, "4") ->', findTaskById(demoTasks, "4"));
+console.log("findTaskById(demoTasks, 777) ->", findTaskById(demoTasks, 777));
+
+console.log("\n--- createTask ---");
+console.log(createTask(20, "Новая задача", "high"));
+console.log(createTask(0, "Новая задача"));
+console.log(createTask(20, "   "));
+console.log(createTask(20, "Новая задача", "urgent"));

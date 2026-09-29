@@ -1,69 +1,84 @@
 
+const PRIORITIES = ["low", "medium", "high"];
+
+function isValidId(id) {
+  return Number.isSafeInteger(id) && id > 0;
+}
+
+function normalizeTitle(value) {
+  if (typeof value !== "string") {
+    return { ok: false, error: "Название должно быть строкой" };
+  }
+
+  const title = value.trim();
+
+  if (title.length === 0) {
+    return { ok: false, error: "Название не должно быть пустым" };
+  }
+
+  if (title.length > 100) {
+    return { ok: false, error: "Название не должно превышать 100 символов" };
+  }
+
+  return { ok: true, title };
+}
+
+function isValidPriority(priority) {
+  return PRIORITIES.includes(priority);
+}
+
 export function createTask(id, title, priority = "medium") {
   if (!isValidId(id)) {
     return { ok: false, error: "id должен быть положительным безопасным целым числом" };
   }
 
-  const titleResult = normalizeTitle(title);
-  if (!titleResult.ok) {
-    return titleResult;
+  const normalized = normalizeTitle(title);
+  if (!normalized.ok) {
+    return normalized;
   }
 
   if (!isValidPriority(priority)) {
-    return { ok: false, error: "priority должен быть одним из: low, medium, high" };
+    return { ok: false, error: 'Приоритет должен быть "low", "medium" или "high"' };
   }
 
   return {
     ok: true,
     task: {
       id,
-      title: titleResult.title,
+      title: normalized.title,
       completed: false,
       priority,
     },
   };
-  throw new Error("Не реализовано: createTask");
 }
 
 export function findTaskById(tasks, id) {
-   return tasks.find((task) => task.id === id);
-  throw new Error("Не реализовано: findTaskById");
+  return tasks.find((task) => task.id === id);
 }
 
 export function getPendingTasks(tasks) {
-   return tasks.filter((task) => task.completed === false);
-  throw new Error("Не реализовано: getPendingTasks");
+  return tasks.filter((task) => task.completed === false);
 }
 
 export function getTaskTitles(tasks) {
   return tasks.map((task) => task.title);
-  throw new Error("Не реализовано: getTaskTitles");
 }
 
 export function getTaskStats(tasks) {
-     const total = tasks.length;
-
-  let completed = 0;
-  for (const task of tasks) {
-    if (task.completed === true) {
-      completed += 1;
-    }
-  }
-
+  const total = tasks.length;
+  const completed = tasks.filter((task) => task.completed === true).length;
   const pending = total - completed;
-  const progress = total === 0 ? 0 : completed / total * 100;
+  const progress = total > 0 ? (completed / total) * 100 : 0;
 
   return { total, completed, pending, progress };
-  throw new Error("Не реализовано: getTaskStats");
 }
 
 export function addTask(tasks, id, title, priority = "medium") {
-     if (!isValidId(id)) {
-    return { ok: false, error: "id должен быть положительным безопасным целым числом" };
+  if (!isValidId(id)) {
+    return { ok: false, error: "id число" };
   }
 
-  const existing = tasks.find((task) => task.id === id);
-  if (existing !== undefined) {
+  if (tasks.some((task) => task.id === id)) {
     return { ok: false, error: `Задача с id = ${id} уже существует` };
   }
 
@@ -73,65 +88,62 @@ export function addTask(tasks, id, title, priority = "medium") {
   }
 
   return { ok: true, tasks: [...tasks, created.task] };
-  throw new Error("Не реализовано: addTask");
 }
 
 export function setTaskCompleted(tasks, id, completed) {
-   if (!isValidId(id)) {
-    return { ok: false, error: "id должен быть положительным безопасным целым числом" };
+  if (!isValidId(id)) {
+    return { ok: false, error: "id число" };
   }
 
   if (typeof completed !== "boolean") {
     return { ok: false, error: "completed должен быть логическим значением" };
   }
 
-  const found = tasks.find((task) => task.id === id);
-  if (found === undefined) {
+  const target = findTaskById(tasks, id);
+  if (target === undefined) {
     return { ok: false, error: `Задача с id = ${id} не найдена` };
   }
 
-  const updated = tasks.map((task) =>
+  const next = tasks.map((task) =>
     task.id === id ? { ...task, completed } : task
   );
 
-  return { ok: true, tasks: updated };
-  throw new Error("Не реализовано: setTaskCompleted");
+  return { ok: true, tasks: next };
 }
 
 export function renameTask(tasks, id, title) {
-    if (!isValidId(id)) {
-    return { ok: false, error: "id должен быть положительным безопасным целым числом" };
+  if (!isValidId(id)) {
+    return { ok: false, error: "id число" };
   }
 
-  const titleResult = normalizeTitle(title);
-  if (!titleResult.ok) {
-    return titleResult;
+  const normalized = normalizeTitle(title);
+  if (!normalized.ok) {
+    return normalized;
   }
 
-  const found = tasks.find((task) => task.id === id);
-  if (found === undefined) {
+  const target = findTaskById(tasks, id);
+  if (target === undefined) {
     return { ok: false, error: `Задача с id = ${id} не найдена` };
   }
 
-  const updated = tasks.map((task) =>
-    task.id === id ? { ...task, title: titleResult.title } : task
+  const next = tasks.map((task) =>
+    task.id === id ? { ...task, title: normalized.title } : task
   );
 
-  return { ok: true, tasks: updated };
-  throw new Error("Не реализовано: renameTask");
+  return { ok: true, tasks: next };
 }
 
 export function removeTask(tasks, id) {
   if (!isValidId(id)) {
-    return { ok: false, error: "id должен быть положительным безопасным целым числом" };
+    return { ok: false, error: "id число" };
   }
 
-  const found = tasks.find((task) => task.id === id);
-  if (found === undefined) {
+  const target = findTaskById(tasks, id);
+  if (target === undefined) {
     return { ok: false, error: `Задача с id = ${id} не найдена` };
   }
 
-  const updated = tasks.filter((task) => task.id !== id);
+  const next = tasks.filter((task) => task.id !== id);
 
-  return { ok: true, tasks: updated };
+  return { ok: true, tasks: next };
 }
