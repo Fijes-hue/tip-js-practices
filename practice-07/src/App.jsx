@@ -1,17 +1,19 @@
+// src/App.jsx
 import { useState } from "react";
 import { tasks as initialTasks, categories } from "./data.js";
 import { createInitialFilters } from "./variant.js";
+import {
+  selectTasks,
+  getTaskStats,
+  addTask,
+  updateTask,
+  toggleTask,
+  removeTask,
+} from "./domain/task-service.js";
 import TaskForm from "./components/TaskForm.jsx";
 import TaskFilters from "./components/TaskFilters.jsx";
 import TaskList from "./components/TaskList.jsx";
 import TaskStats from "./components/TaskStats.jsx";
-import {
-  addTask,
-  getTaskStats,
-  selectTasks,
-  toggleTask,
-  updateTask,
-} from "./domain/task-service.js";
 
 export default function App() {
   const [tasks, setTasks] = useState(() =>
@@ -20,42 +22,56 @@ export default function App() {
   const [filters, setFilters] = useState(createInitialFilters);
   const [editingId, setEditingId] = useState(null);
 
-  const visibleTasks = selectTasks(tasks.filters);
-  const stats = getTaskStats(task);
-  const editingTasks =
-    editingId === null
-      ? null
-      : (task.find((task) => task.id === editingId) ?? null);
+  // Вычисляемые значения (не хранятся в состоянии)
+  const visibleTasks = selectTasks(tasks, filters);
+  const stats = getTaskStats(tasks);
+  const editingTask =
+    editingId !== null ? (tasks.find((t) => t.id === editingId) ?? null) : null;
 
-  function handleSave(value) {
-    if (editingId === null) {
-      setTasks((previous) => addTask(previous, value, nextId(previous)));
-    } else {
-      const exists = task.some((task) => task.id === editingId);
-      if (!exists) {
-        setEditingId(null);
-        return false;
-      }
-      setTasks((previous) => updateTask(previous, editingId, value));
-      setEditingId(null);
-    }
-    return true;
-  }
-  function handleToddle(id) {
+  // Обработчики
+  function handleToggle(id) {
     setTasks((previous) => toggleTask(previous, id));
-  }
-  function handleEdit(id) {
-    setEditingId(id);
   }
 
   function handleDelete(id) {
     if (!window.confirm("Удалить задачу?")) return;
     setTasks((previous) => removeTask(previous, id));
-    if (editingId === id) setEditingId(null);
+    if (editingId === id) {
+      setEditingId(null);
+    }
   }
 
-  function handleCancel() {
+  function handleEdit(id) {
+    setEditingId(id);
+  }
+
+  function handleCancelEdit() {
     setEditingId(null);
+  }
+
+  function handleSave(value) {
+    if (editingId !== null) {
+      // Редактирование
+      const taskExists = tasks.some((t) => t.id === editingId);
+      if (!taskExists) return false;
+      setTasks((previous) => updateTask(previous, editingId, value));
+      setEditingId(null);
+      return true;
+    } else {
+      // Создание
+      const nextId =
+        tasks.length === 0 ? 1 : Math.max(...tasks.map((t) => t.id)) + 1;
+      try {
+        setTasks((previous) => addTask(previous, value, nextId));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  function handleResetFilters() {
+    setFilters({ q: "", completed: "", priority: "", categoryId: "" });
   }
 
   return (
@@ -65,18 +81,31 @@ export default function App() {
         ПР7: данные в памяти. Обновление страницы восстанавливает исходный
         набор.
       </p>
-      <p role="status">
-        Заготовка запущена. В наборе {tasks.length} задач, категорий:{" "}
-        {categories.length}.
-      </p>
-      <TaskStats />
+
+      <TaskStats stats={stats} />
+
       <TaskFilters
         filters={filters}
         categories={categories}
         onChange={setFilters}
+        onReset={handleResetFilters}
       />
-      <TaskForm categories={categories} />
-      <TaskList tasks={[]} categories={categories} />
+
+      <TaskForm
+        key={editingId ?? "new"}
+        categories={categories}
+        initialTask={editingTask}
+        onSave={handleSave}
+        onCancel={handleCancelEdit}
+      />
+
+      <TaskList
+        tasks={visibleTasks}
+        categories={categories}
+        onToggle={handleToggle}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
     </main>
   );
 }

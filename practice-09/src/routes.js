@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ApiError } from "./errors.js";
 import { parsePositiveId, parseFilters } from "./validation.js";
+import express from "express";
 
 const ALLOW_HEADER = "GET, HEAD, OPTIONS";
 
@@ -55,6 +56,63 @@ export function createRouter(store) {
 
   // 405 для четырёх известных путей — строго ПОСЛЕ GET-маршрутов.
   router.all("/health", methodNotAllowed("/health"));
+  router.post("/tasks", express.json(), (req, res, next) => {
+    const body = req.body ?? {};
+
+    // Проверка title
+    const rawTitle = body.title;
+    if (typeof rawTitle !== "string") {
+      return next(
+        new ApiError(400, "VALIDATION_ERROR", "title должен быть строкой.", {
+          title: "Название обязательно.",
+        }),
+      );
+    }
+    const title = rawTitle.trim();
+    if (title.length === 0) {
+      return next(
+        new ApiError(400, "VALIDATION_ERROR", "title не должен быть пустым.", {
+          title: "Название не должно быть пустым.",
+        }),
+      );
+    }
+    if (title.length > 100) {
+      return next(
+        new ApiError(400, "VALIDATION_ERROR", "title слишком длинный.", {
+          title: "Не более 100 символов.",
+        }),
+      );
+    }
+
+    // Проверка priority
+    const allowed = ["low", "medium", "high"];
+    if (!allowed.includes(body.priority)) {
+      return next(
+        new ApiError(400, "VALIDATION_ERROR", "priority неверный.", {
+          priority: "Ожидается low, medium или high.",
+        }),
+      );
+    }
+
+    // Проверка categoryId
+    if (!Number.isSafeInteger(body.categoryId) || body.categoryId <= 0) {
+      return next(
+        new ApiError(400, "VALIDATION_ERROR", "categoryId неверный.", {
+          categoryId: "Положительное целое число.",
+        }),
+      );
+    }
+
+    // Успех
+    const task = {
+      id: 999,
+      title,
+      completed: false,
+      priority: body.priority,
+      categoryId: body.categoryId,
+    };
+    res.status(201).json({ data: task });
+  });
   router.all("/categories", methodNotAllowed("/categories"));
   router.all("/tasks", methodNotAllowed("/tasks"));
   router.all("/tasks/:id", methodNotAllowed("/tasks/:id"));

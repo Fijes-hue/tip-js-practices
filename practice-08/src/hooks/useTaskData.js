@@ -45,6 +45,9 @@ export function useTaskData({ api, filters }) {
     setStatus("loading");
     setError(null);
 
+    // Временный лог для скриншота 2:
+    console.log("isLoading:", true, "tasks.length:", snapshot.tasks.length);
+
     async function load() {
       try {
         const result = await api.loadInitialData(
@@ -60,10 +63,12 @@ export function useTaskData({ api, filters }) {
         });
         setStatus("ready");
         setError(null);
+
+        // Временный лог для скриншота 2:
+        console.log("isLoading:", false, "tasks.length:", result.tasks.length);
       } catch (caught) {
         if (!active || controller.signal.aborted) return;
         if (caught?.kind === "aborted") return;
-        if (!mountedRef.current) return;
         setError(caught);
         setStatus("error");
       }

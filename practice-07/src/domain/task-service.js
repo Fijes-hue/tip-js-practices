@@ -1,115 +1,170 @@
+// src/domain/task-service.js
+// Чистые функции: без React, DOM, сети, случайных значений и изменения аргументов.
+
 const ALLOWED_PRIORITIES = new Set(["low", "medium", "high"]);
 
-function isPositiveSafeInteger(value) {
-  return Number.isSafeInteger(value) && value > 0;
-}
-
+// --- Валидация черновика формы ---
 export function validateTaskDraft(draft, categories) {
   const errors = {};
-  let title;
-  let priority;
-  let categoryId;
 
-  const rawTitle = draft?.title;
+  if (!draft || typeof draft !== "object" || Array.isArray(draft)) {
+    return {
+      valid: false,
+      value: null,
+      errors: { title: "Черновик должен быть объектом." },
+    };
+  }
+
+  // title
+  const rawTitle = draft.title;
+  let title = "";
   if (typeof rawTitle !== "string") {
     errors.title = "Название должно быть строкой.";
   } else {
-    const trimmed = rawTitle.trim();
-    if (trimmed.length === 0) {
-      errors.title = "Название не должно быть пустым.";
-    } else if (trimmed.length > 100) {
-      errors.title = "Название не должно превышать 100 символов.";
-    } else {
-      title = trimmed;
+    title = rawTitle.trim();
+    if (title.length < 1) {
+      errors.title = "Название не может быть пустым.";
+    } else if (title.length > 100) {
+      errors.title = "Название должно быть не длиннее 100 символов.";
     }
   }
 
-  const rawPriority = draft?.priority;
-  if (typeof rawPriority !== "string" || !ALLOWED_PRIORITIES.has(rawPriority)) {
-    errors.priority = 'Приоритет должен быть "low", "medium" или "high".';
-  } else {
-    priority = rawPriority;
+  // priority
+  const priority = draft.priority;
+  if (typeof priority !== "string" || !ALLOWED_PRIORITIES.has(priority)) {
+    errors.priority = "Приоритет должен быть low, medium или high.";
   }
 
-  const rawCategory = draft?.categoryId;
-  let numericCategory = NaN;
-  if (typeof rawCategory === "number") {
-    numericCategory = rawCategory;
-  } else if (
-    typeof rawCategory === "string" &&
-    /^\d+$/.test(rawCategory.trim())
+  // categoryId: должна быть строго целым положительным числом, существующим в справочнике
+  const rawCategoryId = draft.categoryId;
+  let categoryId = null;
+  if (
+    rawCategoryId === "" ||
+    rawCategoryId === null ||
+    rawCategoryId === undefined
   ) {
-    numericCategory = Number(rawCategory);
-  }
-
-  if (!isPositiveSafeInteger(numericCategory)) {
-    errors.categoryId = "Категория должна быть выбрана.";
-  } else if (
-    !Array.isArray(categories) ||
-    !categories.some((category) => category.id === numericCategory)
-  ) {
-    errors.categoryId = "Такой категории не существует.";
+    errors.categoryId = "Выберите категорию.";
   } else {
-    categoryId = numericCategory;
+    // Строгая проверка: только строка, состоящая из цифр, ИЛИ уже число.
+    // parseInt('2x') === 2, поэтому так нельзя — нужна полная валидность.
+    let parsed = null;
+    if (typeof rawCategoryId === "number") {
+      if (Number.isInteger(rawCategoryId) && rawCategoryId > 0) {
+        parsed = rawCategoryId;
+      }
+    } else if (typeof rawCategoryId === "string") {
+      if (/^[1-9]\d*$/.test(rawCategoryId)) {
+        const n = Number(rawCategoryId);
+        if (Number.isSafeInteger(n)) parsed = n;
+      }
+    }
+
+    if (parsed === null) {
+      errors.categoryId = "Категория должна быть положительным целым числом.";
+    } else {
+      const ids = new Set((categories ?? []).map((c) => c.id));
+      if (!ids.has(parsed)) {
+        errors.categoryId = "Указана неизвестная категория.";
+      } else {
+        categoryId = parsed;
+      }
+    }
   }
 
-  if (Object.keys(errors).length > 0) {
-    return { valid: false, value: null, errors };
-  }
-  return { valid: true, value: { title, priority, categoryId }, errors: {} };
+  const valid = Object.keys(errors).length === 0;
+  const value = valid ? { title, priority, categoryId } : null;
+  return { valid, value, errors };
 }
 
+// --- Фильтрация ---
 export function selectTasks(tasks, filters) {
-  const q = (filters.q ?? "").trim().toLowerCase();
-  const { completed, priority, categoryId } = filters;
+  const q = typeof filters.q === "string" ? filters.q.trim().toLowerCase() : "";
+  const completedFilter = filters.completed; // '' | 'true' | 'false'
+  const priorityFilter = filters.priority; // '' | 'low' | 'medium' | 'high'
+  const categoryIdFilter =
+    filters.categoryId === "" || filters.categoryId == null
+      ? null
+      : Number(filters.categoryId);
 
   return tasks.filter((task) => {
     if (q && !task.title.toLowerCase().includes(q)) return false;
 
-    if (completed === "true" && task.completed !== true) return false;
-    if (completed === "false" && task.completed !== false) return false;
+    if (completedFilter === "true" && !task.completed) return false;
+    if (completedFilter === "false" && task.completed) return false;
 
-    if (priority && task.priority !== priority) return false;
-    if (categoryId && String(task.categoryId) !== categoryId) return false;
+    if (priorityFilter && task.priority !== priorityFilter) return false;
+
+    if (categoryIdFilter !== null && task.categoryId !== categoryIdFilter)
+      return false;
+
     return true;
   });
 }
 
+// --- Статистика по всему массиву ---
 export function getTaskStats(tasks) {
-  const total = tasks.length;
-  const completed = tasks.filter((task) => task.completed === true).length;
-  return { total, completed, active: total - completed };
+  let completed = 0;
+  for (const task of tasks) {
+    if (task.completed) completed += 1;
+  }
+  return {
+    total: tasks.length,
+    completed,
+    active: tasks.length - completed,
+  };
 }
 
+// --- Операции изменения (возвращают новый массив) ---
+
 export function addTask(tasks, value, id) {
-  if (!isPositiveSafeInteger(id)) {
-    throw new TypeError("id должен быть положительным безопасным целым числом");
+  // Проверка id: целое положительное, не занятое
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new TypeError("id должен быть положительным целым числом.");
   }
-  if (tasks.some((task) => task.id === id)) {
-    throw new Error(`Задача с id = ${id} уже существует`);
+  if (tasks.some((t) => t.id === id)) {
+    throw new Error(`Задача с id ${id} уже существует.`);
   }
-  return [...tasks, { id, ...value, completed: false }];
+
+  const newTask = {
+    id,
+    title: value.title,
+    priority: value.priority,
+    categoryId: value.categoryId,
+    completed: false,
+  };
+  return [...tasks, newTask];
 }
 
 export function updateTask(tasks, id, value) {
-  return tasks.map((task) =>
-    task.id === id
-      ? {
-          ...task,
-          title: value.title,
-          priority: value.priority,
-          categoryId: value.categoryId,
-        }
-      : task,
-  );
+  let found = false;
+  const next = tasks.map((task) => {
+    if (task.id !== id) return task;
+    found = true;
+    return {
+      ...task,
+      title: value.title,
+      priority: value.priority,
+      categoryId: value.categoryId,
+      // completed сохраняется
+    };
+  });
+  // Неизвестный id — возвращаем тот же массив (контракт ПР7)
+  return found ? next : tasks;
 }
 
 export function toggleTask(tasks, id) {
-  return tasks.map((task) =>
-    task.id === id ? { ...task, completed: !task.completed } : task,
-  );
+  let found = false;
+  const next = tasks.map((task) => {
+    if (task.id !== id) return task;
+    found = true;
+    return { ...task, completed: !task.completed };
+  });
+  return found ? next : tasks;
 }
 
 export function removeTask(tasks, id) {
-  return tasks.filter((task) => task.id !== id);
+  const next = tasks.filter((task) => task.id !== id);
+  // Если id не найден — длина не изменится, вернётся массив с теми же элементами.
+  // Чтобы сохранить контракт "возврат той же ссылки при отсутствии изменений":
+  return next.length === tasks.length ? tasks : next;
 }
